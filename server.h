@@ -1,6 +1,7 @@
 TCPSocket socket;
 int server_connect_id = 0;
 int server_data_id = 0;
+bool server_socket_open = false;
 
 void serverDispatch() {
     mdmEvent.set(MDM_EVENT_SERVER_DISPATCH);
@@ -26,9 +27,13 @@ void serverConnect() {
     }
 
     tr_debug("Connecting to server");
+
+    if (server_socket_open) {
+        socket.close();
+        server_socket_open = false;
+    }
+
     socket.sigio(nullptr);
-    socket.set_blocking(true);
-    socket.set_timeout(7000); // ms
 
     ret = socket.open(mdm);
 
@@ -36,6 +41,8 @@ void serverConnect() {
         tr_error("Socket open error: %i", ret);
         goto TRY_AGAIN;
     }
+
+    server_socket_open = true;
 
     ret = mdm->gethostbyname("your-server.com", &addr);
 
@@ -45,6 +52,8 @@ void serverConnect() {
 
     addr.set_port(8080);
     socket.sigio(serverCb);
+    socket.set_blocking(true);
+    socket.set_timeout(7000); // ms
 
     ret = socket.connect(addr);
 
@@ -70,8 +79,13 @@ void serverConnect() {
 
     return;
 
-
 TRY_AGAIN:
+    socket.sigio(nullptr);
+
+    if (server_socket_open) {
+        socket.close();
+        server_socket_open = false;
+    }
 
     if (ret == NSAPI_ERROR_NO_CONNECTION || ret == NSAPI_ERROR_DEVICE_ERROR) {
         if (server_connect_id) {
@@ -79,14 +93,9 @@ TRY_AGAIN:
             server_connect_id = 0;
         }
 
-        socket.close();
         mdmEvent.set(MDM_EVENT_CONNECT);
 
     } else {
-        if (ret == NSAPI_ERROR_PARAMETER) {
-            socket.close();
-        }
-
         server_connect_id = eQueue.call_in(5s, serverConnectRepeat);
 
         if (!server_connect_id) {
