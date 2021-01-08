@@ -1,0 +1,4 @@
+BUILD/
+mbed-os/
+__pycache__
+custom_targets.json

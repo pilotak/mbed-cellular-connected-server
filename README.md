@@ -1,2 +1,1 @@
-# mbed-cellular-boilerplate
-Mbed uBlox cellular basic with reconnect
+# Mbed boilerplate for permanent server connection

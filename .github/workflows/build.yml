@@ -1,0 +1,44 @@
+name: build
+
+on:
+  push:
+    paths-ignore:
+      - "README.md"
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+
+      - name: Install ARM GCC
+        run: |
+          wget -nv https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
+          sudo tar -C /bin/ -xjf gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
+          echo "MBED_GCC_ARM_PATH=/bin/gcc-arm-none-eabi-9-2019-q4-major/bin/" >> $GITHUB_ENV
+
+      - name: Install Mbed
+        run: |
+          pip install wheel
+          pip install mbed-cli
+
+      - name: Install dependencies
+        run: |
+          mbed deploy
+          cd ./mbed-os && pip install -r requirements.txt
+
+      - name: Build
+        if: success()
+        run: |
+          mbed compile -t GCC_ARM -m NUCLEO_F303RE
