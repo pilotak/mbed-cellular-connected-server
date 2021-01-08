@@ -79,6 +79,7 @@ void mdmSetup() {
         goto TRY_AGAIN;
     }
 
+    mdm_device->set_timeout(10000); // ms
     mdm_device->set_retry_timeout_array(mdm_timeout, 7);
     mdm->set_credentials(MBED_CONF_APP_APN);
     mdm->attach(mdmCb);

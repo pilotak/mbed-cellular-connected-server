@@ -26,6 +26,10 @@ void serverConnect() {
     }
 
     tr_debug("Connecting to server");
+    socket.sigio(nullptr);
+    socket.set_blocking(true);
+    socket.set_timeout(7000); // ms
+
     ret = socket.open(mdm);
 
     if (ret != NSAPI_ERROR_OK) {
@@ -41,7 +45,6 @@ void serverConnect() {
 
     addr.set_port(8080);
     socket.sigio(serverCb);
-    socket.set_blocking(true);
 
     ret = socket.connect(addr);
 
@@ -69,7 +72,6 @@ void serverConnect() {
 
 
 TRY_AGAIN:
-    socket.sigio(nullptr);
 
     if (ret == NSAPI_ERROR_NO_CONNECTION || ret == NSAPI_ERROR_DEVICE_ERROR) {
         if (server_connect_id) {
