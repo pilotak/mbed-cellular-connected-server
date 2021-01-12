@@ -192,6 +192,9 @@ void mdmCb(nsapi_event_t type, intptr_t ptr) {
 
                 if (ptr_data->status_data == CellularDevice::SimStateReady) {
                     mdmEvent.set(MDM_EVENT_CONNECT);
+
+                } else if (ptr_data->status_data == CellularDevice::SimStatePukNeeded) {
+                    mdmEvent.set(MDM_EVENT_OFF);
                 }
 
 #endif
