@@ -5,10 +5,13 @@
 #include "sms.h"
 
 uint8_t registration_status = CellularNetwork::StatusNotAvailable;
-uint8_t sim_state = CellularDevice::SimStateUnknown;
 int mdm_connect_id = 0;
 int mdm_setup_id = 0;
 const uint16_t mdm_timeout[7] = {1, 4, 8, 16, 32, 64, 128};
+
+/* This will enable SIM checking and will stop connecting
+   if there is an error (no SIM or wrong pin provided) */
+#define ADVANCED_SIM
 
 void mdmCb(nsapi_event_t type, intptr_t ptr);
 
@@ -23,12 +26,9 @@ void mdmConnect() {
         return;
     }
 
-    if (sim_state == CellularDevice::SimStatePinNeeded || sim_state == CellularDevice::SimStatePukNeeded) {
-        tr_error("SIM PIN/PUK needed");
-        return;
-    }
-
     tr_debug("MDM connect");
+    mdm_device->set_retry_timeout_array(mdm_timeout, 7);
+
     nsapi_error_t ret = mdm->connect();
 
     if (ret == NSAPI_ERROR_OK) {
@@ -93,10 +93,20 @@ void mdmSetup() {
 #endif
 
     mdm_device->set_timeout(10000); // ms
-    mdm_device->set_retry_timeout_array(mdm_timeout, 7);
+
+#if defined(ADVANCED_SIM)
+    mdm_device->set_retry_timeout_array(mdm_timeout, 2);
+
+    if (mdm_device->set_sim_ready() != NSAPI_ERROR_OK) {
+        tr_error("SIM state machine error");
+        return;
+    }
+
+#else
+    mdmEvent.set(MDM_EVENT_CONNECT);
+#endif
 
     tr_info("Modem setup OK");
-    mdmEvent.set(MDM_EVENT_CONNECT);
 
     return;
 
@@ -158,13 +168,18 @@ void mdmCb(nsapi_event_t type, intptr_t ptr) {
         cell_callback_data_t *ptr_data = reinterpret_cast<cell_callback_data_t *>(ptr);
         cellular_connection_status_t event = (cellular_connection_status_t)type;
 
+#if defined(ADVANCED_SIM)
+
+        if (event == CellularSIMStatusChanged && ptr_data->error == NSAPI_ERROR_DEVICE_ERROR) {
+            tr_error("SIM error");
+            mdmEvent.set(MDM_EVENT_OFF);
+        }
+
+#endif
+
         if (ptr_data->error == NSAPI_ERROR_OK) {
             if (ptr_data->final_try) {
                 tr_info("Final_try");
-
-                if (sim_state != CellularDevice::SimStatePinNeeded && sim_state != CellularDevice::SimStatePukNeeded) {
-                    mdmEvent.set(MDM_EVENT_RESET);
-                }
             }
 
             if (event == CellularDeviceReady) {
@@ -172,7 +187,14 @@ void mdmCb(nsapi_event_t type, intptr_t ptr) {
 
             } else if (event == CellularSIMStatusChanged) {
                 tr_debug("SIM: %i", static_cast<int>(ptr_data->status_data));
-                sim_state = ptr_data->status_data;
+
+#if defined(ADVANCED_SIM)
+
+                if (ptr_data->status_data == CellularDevice::SimStateReady) {
+                    mdmEvent.set(MDM_EVENT_CONNECT);
+                }
+
+#endif
 
             } else if (event == CellularRegistrationStatusChanged) {
                 if (registration_status != ptr_data->status_data && ptr_data->status_data != CellularNetwork::StatusNotAvailable) {
@@ -227,6 +249,10 @@ void mdmLoop() {
 
     if (event & MDM_EVENT_CONNECT) {
         mdmConnect();
+    }
+
+    if (event & MDM_EVENT_OFF) {
+        mdmOff();
     }
 
     if (event & MDM_EVENT_RESET) {
