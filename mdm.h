@@ -79,14 +79,15 @@ void mdmSetup() {
         goto TRY_AGAIN;
     }
 
-    mdm_device->set_timeout(10000); // ms
-    mdm_device->set_retry_timeout_array(mdm_timeout, 7);
-    mdm->set_credentials(MBED_CONF_APP_APN);
     mdm->attach(mdmCb);
+    mdm->set_credentials(MBED_CONF_APP_APN);
 
 #if defined(MBED_CONF_APP_SIM_PIN)
     mdm->set_sim_pin(MBED_CONF_APP_SIM_PIN);
 #endif
+
+    mdm_device->set_timeout(10000); // ms
+    mdm_device->set_retry_timeout_array(mdm_timeout, 7);
 
     tr_info("Modem setup OK");
     mdmEvent.set(MDM_EVENT_CONNECT);
