@@ -5,6 +5,7 @@
 #include "sms.h"
 
 uint8_t registration_status = CellularNetwork::StatusNotAvailable;
+uint8_t sim_state = CellularDevice::SimStateUnknown;
 int mdm_connect_id = 0;
 int mdm_setup_id = 0;
 const uint16_t mdm_timeout[7] = {1, 4, 8, 16, 32, 64, 128};
@@ -19,6 +20,11 @@ void mdmConnectRepeat() {
 void mdmConnect() {
     if (mdm_connect_id) {
         tr_debug("Connect in progress");
+        return;
+    }
+
+    if (sim_state == CellularDevice::SimStatePinNeeded || sim_state == CellularDevice::SimStatePukNeeded) {
+        tr_error("SIM PIN/PUK needed");
         return;
     }
 
@@ -155,7 +161,10 @@ void mdmCb(nsapi_event_t type, intptr_t ptr) {
         if (ptr_data->error == NSAPI_ERROR_OK) {
             if (ptr_data->final_try) {
                 tr_info("Final_try");
-                mdmEvent.set(MDM_EVENT_RESET);
+
+                if (sim_state != CellularDevice::SimStatePinNeeded && sim_state != CellularDevice::SimStatePukNeeded) {
+                    mdmEvent.set(MDM_EVENT_RESET);
+                }
             }
 
             if (event == CellularDeviceReady) {
@@ -163,6 +172,7 @@ void mdmCb(nsapi_event_t type, intptr_t ptr) {
 
             } else if (event == CellularSIMStatusChanged) {
                 tr_debug("SIM: %i", static_cast<int>(ptr_data->status_data));
+                sim_state = ptr_data->status_data;
 
             } else if (event == CellularRegistrationStatusChanged) {
                 if (registration_status != ptr_data->status_data && ptr_data->status_data != CellularNetwork::StatusNotAvailable) {
