@@ -171,7 +171,7 @@ void mdmCb(nsapi_event_t type, intptr_t ptr) {
 #if defined(ADVANCED_SIM)
 
         if (event == CellularSIMStatusChanged && ptr_data->error == NSAPI_ERROR_DEVICE_ERROR) {
-            tr_error("SIM error");
+            tr_error("No SIM or wrong PIN");
             mdmEvent.set(MDM_EVENT_OFF);
         }
 

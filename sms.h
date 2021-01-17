@@ -48,6 +48,8 @@ void smsRead() {
             tr_info("Got SMS from \"%s\" with text (%u) \"%s\"", num, sms_len, sms_buf);
         }
     }
+
+    mdm_device->close_sms();
 }
 
 void smsEventReadSms() {
@@ -96,10 +98,12 @@ void smsSetup() {
 
     sms_done = true;
     mdmEvent.set(MDM_EVENT_SMS_READ);
+    mdm_device->close_sms();
 
     return;
 
 TRY_AGAIN:
+    mdm_device->close_sms();
     sms_setup_id = eQueue.call_in(5s, smsSetupRepeat);
 
     if (!sms_setup_id) {
